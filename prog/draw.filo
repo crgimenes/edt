@@ -1,0 +1,17 @@
+; Painted whole on every key: the text rows (as lines, or as bytes in hex),
+; then the bars unless bare.
+(let ((rows (text-rows)))
+  ; the text on the terminal's own ground, the same whether bare or not, so
+  ; the footer is the only thing that comes and goes
+  (fg C_DEFAULT)
+  (bg C_DEFAULT)
+  (fill 0 0 rows W " ")
+  (if (= VIEW "hex")
+    (draw-hex rows)
+    (letv (top left) (tb-view rows W)
+      (let ((lang (lang-of (tb-path))))
+        (map (fn (r) (let ((i (+ top r))) (if (< i (tb-lines)) (draw-line r i left lang))))
+          (range rows)))
+      (if (or (= MODE "edit") (= MODE "menu") (= MODE "quit"))
+        (letv (cl cc) (tb-cursor) (cursor-at (- cl top) (- cc left))))))
+  (if (not (and BARE (= MODE "edit"))) (status-line)))

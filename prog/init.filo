@@ -1,0 +1,443 @@
+; edt's face. The text lives in C (the tb-* builtins); this is the chrome:
+; the two views, the modes, the keys, the status line. EDIT's scope and a
+; terminal's manners: no mouse, nothing drawn that a click could answer.
+
+; MODE is edit, menu, find, saveas, goto, cmd or quit. BARE drops the
+; footer: the text alone, for the mouse to copy. MSG is the footer's one
+; line, gone on the next key.
+(def MODE "edit")
+(def BARE #f)
+(def MSG "")
+(def FIND "")
+
+; LEAVE: quitting waits on a name for the file; saving under it ends edt.
+(def LEAVE #f)
+
+; VIEW is text or hex. In hex, PANE says which side typing goes to (hex
+; digits or characters), NIB that the high half of the byte was typed and
+; the low one comes next, HTOP the offset of the first row shown, and CP
+; whether the characters are code page 437 (as PC Tools and Norton showed
+; them) or dots for what is not printable.
+(def VIEW "text")
+(def PANE "hex")
+(def NIB #f)
+(def HTOP 0)
+(def CP #t)
+
+(def slice
+  (fn (items from to) (map (fn (i) (nth items (+ from i))) (range (- to from)))))
+(def menu-rows (fn () (if (> (hints-width (menu-hints)) (- W 2)) 2 1)))
+(def footer-rows (fn () (if (= MODE "menu") (menu-rows) 1)))
+(def text-rows (fn () (if (and BARE (= MODE "edit")) H (- H (footer-rows)))))
+
+; Saves where the file lives, or at path when given; a new file with no
+; name asks for one.
+(def save
+  (fn (path)
+    (let ((why (if (= path "") (tb-save) (tb-save path))))
+      (cond
+        ((= why "") (do (set MSG (str-concat "Saved " (tb-path))) #t))
+        ((and (= path "") (= why "No such file or directory"))
+          (do (set MODE "saveas") #f))
+        (else
+          (do
+            (set MSG (str-concat "edt: " (if (= path "") (tb-path) path) ": " why))
+            #f))))))
+
+; What a hex search takes: pairs of hex digits, spaces between them allowed.
+(def HEXD "0123456789abcdef")
+(def digit-of
+  (fn (c)
+    (fold (fn (v i) (if (= (str-sub HEXD i (+ i 1)) c) i v)) -1 (range 16))))
+(def hex-pattern?
+  (fn (s)
+    (let ((t (str-lower s)))
+      (and (> (str-len (str-replace " " "" t)) 0)
+        (= (% (str-len (str-replace " " "" t)) 2) 0)
+        (fold
+          (fn (ok i)
+            (and ok
+              (let ((c (str-sub t i (+ i 1)))) (or (= c " ") (>= (digit-of c) 0)))))
+          #t
+          (range (str-len t)))))))
+
+; In the hex view a search is for bytes when it reads as hex, for the text
+; otherwise; the cursor lands on the first byte found.
+(def find-next
+  (fn ()
+    (cond
+      ((= FIND "") (set MODE "find"))
+      ((and (= VIEW "hex") (hex-pattern? FIND))
+        (if (not (tb-find-bytes FIND)) (set MSG (str-concat "Not found: " FIND))))
+      ((not (tb-find FIND)) (set MSG (str-concat "Not found: " FIND)))
+      (else #t))))
+
+; An offset as people write one: 0x4D or 4Dh in hex, 77 in decimal.
+(def parse-number
+  (fn (s base)
+    (fold
+      (fn (v i)
+        (let ((d (digit-of (str-sub s i (+ i 1)))))
+          (if (or (< v 0) (< d 0) (>= d base)) -1 (+ (* v base) d))))
+      0
+      (range (str-len s)))))
+(def parse-offset
+  (fn (text)
+    (let ((s (str-lower (str-trim text))) (n (str-len s)))
+      (cond
+        ((= n 0) -1)
+        ((and (> n 2) (= (str-sub s 0 2) "0x")) (parse-number (str-sub s 2) 16))
+        ((and (> n 1) (= (str-sub s (- n 1) n) "h")) (parse-number (str-sub s 0 (- n 1)) 16))
+        (else (parse-number s 10))))))
+
+(def go-to
+  (fn (text)
+    (let ((off (parse-offset text)))
+      (cond
+        ((< off 0) (set MSG (str-concat "edt: not an offset: " text)))
+        ((= VIEW "hex") (do (tb-seek off) (set NIB #f)))
+        (else (tb-goto off))))))
+
+(def quit (fn () (if (tb-dirty) (set MODE "quit") (done))))
+
+; The manual for what is being edited, in the VM's pager: Redcode has one
+; where rocchetto keeps Core War's; a VM without that file says so.
+(def ends-with
+  (fn (text suffix)
+    (let ((n (str-len text)) (k (str-len suffix)))
+      (and (>= n k) (= (str-sub text (- n k) n) suffix)))))
+
+(def manual
+  (fn ()
+    (if (ends-with (tb-path) ".red")
+      (let ((why (pager-file "/lib/roc/corewar/redcode.md")))
+        (if (not (= why "")) (set MSG (str-concat "edt: no manual here: " why))))
+      (set MSG "no manual for this one"))))
+
+; Filo source laid out as filofmt lays it out, the cursor on the same
+; character of the code: only blanks move, and tb-format says why when it
+; will not.
+(def filo-text? (fn () (and (= VIEW "text") (= (lang-of (tb-path)) "filo"))))
+
+(def reformat
+  (fn ()
+    (if (filo-text?)
+      (let ((why (tb-format)))
+        (set MSG (if (= why "") "formatted" (str-concat "edt: fmt: " why))))
+      (set MSG "edt: fmt: only Filo source (.filo) is formatted"))))
+
+(def save-and-quit
+  (fn ()
+    (set MODE "edit")
+    (cond
+      ((save "") (done))
+      ((= MODE "saveas") (set LEAVE #t))
+      (else #f))))
+
+; The two views share the text: switching keeps the cursor on the same
+; byte, backed off to the start of its character for the line view.
+(def toggle-view
+  (fn ()
+    (if (= VIEW "text")
+      (do (set VIEW "hex") (set NIB #f))
+      (do (set VIEW "text") (tb-seek (tb-offset) #t)))))
+
+; The language a line is colored as: the file's extension, as a code
+; fence names it ("c", "go", "filo", "red"...); none, or one the
+; highlighter does not know, leaves it plain.
+(def lang-of
+  (fn (path)
+    (let ((parts (str-split "." (head (reverse (str-split "/" path))))))
+      (if (> (length parts) 1) (head (reverse parts)) ""))))
+
+; The color of each class tb-spans gives: plain, comment, string, number,
+; keyword.
+(def class-fg
+  (fn (c)
+    (cond ((= c 1) 244) ((= c 2) 108) ((= c 3) 139) ((= c 4) 74) (else C_DEFAULT))))
+
+(def draw-line
+  (fn (y i left lang)
+    (fold
+      (fn (x s)
+        (letv (text c sel) s
+          (do
+            (fg (class-fg c))
+            (attr (if sel A_REV 0))
+            (+ x (print-at y x text)))))
+      0
+      (tb-spans i left W lang))
+    (fg C_DEFAULT)
+    (attr 0)))
+
+; ---- the hex view ----
+
+; Bytes a row holds: sixteen when the row fits (offset, hex, characters),
+; eight or four on narrower terminals.
+(def per-row (fn () (cond ((>= W 76) 16) ((>= W 43) 8) (else 4))))
+(def hex-width (fn () (- (* (per-row) 3) (if (= (per-row) 16) 0 1))))
+(def hex-col (fn () 10))
+(def text-col (fn () (+ (hex-col) (hex-width) 2)))
+
+; Where byte i of a row sits in the hex columns: three a byte, and a gap
+; after the eighth.
+(def byte-col (fn (i) (+ (hex-col) (* i 3) (if (>= i 8) 1 0))))
+
+; The first row shown follows the cursor, a row at a time.
+(def hex-scroll
+  (fn (rows)
+    (let ((per (per-row)) (row (floor (/ (tb-offset) per))) (top (floor (/ HTOP per))))
+      (cond
+        ((< row top) (set HTOP (* row per)))
+        ((>= row (+ top rows)) (set HTOP (* (+ (- row rows) 1) per)))
+        (else (set HTOP (* top per)))))))
+
+(def hex-row
+  (fn (y off)
+    (letv (digits chars) (tb-hex-row off (per-row) CP)
+      (do
+        (fg 244)
+        (print-at y 0 (hex off 8))
+        (fg C_DEFAULT)
+        (print-at y (hex-col) digits)
+        (fg 250)
+        (print-at y (text-col) chars)
+        (fg C_DEFAULT)))))
+
+; The cursor is shown on both sides; the side typing goes to is the one in
+; reverse, the other only underlined by colour.
+(def hex-cursor
+  (fn (y i)
+    (let ((b (tb-byte-at (tb-offset)))
+          (digits (if (< b 0) "  " (hex b 2)))
+          (glyph (cond ((< b 0) " ") (CP (cp437 b)) ((and (>= b 32) (< b 127)) (cp437 b)) (else "."))))
+      (if (= PANE "hex") (attr A_REV) (do (fg 0) (bg 214)))
+      (print-at y (byte-col i) digits)
+      (attr 0)
+      (fg C_DEFAULT)
+      (bg C_DEFAULT)
+      (if (= PANE "text") (attr A_REV) (do (fg 0) (bg 214)))
+      (print-at y (+ (text-col) i) glyph)
+      (attr 0)
+      (fg C_DEFAULT)
+      (bg C_DEFAULT)
+      (if (= PANE "hex")
+        (cursor-at y (+ (byte-col i) (if NIB 1 0)))
+        (cursor-at y (+ (text-col) i))))))
+
+(def draw-hex
+  (fn (rows)
+    (hex-scroll rows)
+    (let ((per (per-row)) (size (tb-size)))
+      (map
+        (fn (r)
+          (let ((off (+ HTOP (* r per))))
+            (if (or (< off size) (and (= off 0) (= size 0)) (= off (* (floor (/ size per)) per)))
+              (hex-row r off))))
+        (range rows))
+      (let ((at (tb-offset)))
+        (hex-cursor (floor (/ (- at HTOP) per)) (- at (* (floor (/ at per)) per)))))))
+
+; ---- the footer ----
+
+; The footer is the whole language: Esc, then the red letter of a word.
+; Ctrl chords for the common ones sit there all the time; vi's colon and
+; slash work too and are not shown. The colours are a tmux status line's:
+; dark grey ground, keys in orange and bold, words in light grey, the
+; position in green.
+(def bar (fn (y) (fg 252) (bg 236) (fill y 0 1 W " ")))
+
+(def hint
+  (fn (row col key rest)
+    (attr A_BOLD)
+    (fg 214)
+    (let ((w (print-at row col key)))
+      (attr 0)
+      (fg 252)
+      (+ w (print-at row (+ col w) rest)))))
+
+(def hints
+  (fn (row col items)
+    (fold (fn (c item) (letv (k r) item (+ c (hint row c k r) 2))) col items)))
+
+(def hints-width
+  (fn (items)
+    (fold (fn (w item) (letv (k r) item (+ w (text-width k) (text-width r) 2)))
+      0
+      items)))
+
+; The last hints that fit in the room left: a long path pushes the first
+; ones off rather than cutting a word in half, and Esc, which opens the
+; rest, is the one that stays.
+(def fit-hints
+  (fn (items room)
+    (let ((k
+            (fold
+              (fn (k i)
+                (if (<= (hints-width (slice items k (length items))) room) k (+ k 1)))
+              0
+              (range (length items)))))
+      (slice items k (length items)))))
+
+(def menu-hints
+  (fn ()
+    (list-concat
+      (list
+        (tuple "S" "ave")
+        (tuple "A" "s")
+        (tuple "Q" "uit")
+        (tuple "D" "elete")
+        (tuple "C" "opy")
+        (tuple "P" "aste")
+        (tuple "L" "ine")
+        (tuple "F" "ind")
+        (tuple "N" "ext")
+        (tuple "G" "o to")
+        (tuple "X" (if (= VIEW "hex") " text" " hex"))
+        (tuple "M" "arkdown")
+        (tuple "B" "are")
+        (tuple "H" "elp"))
+      (if (filo-text?) (list (tuple "R" "eformat")) (list)))))
+
+(def plain-hints
+  (fn ()
+    (if (= VIEW "hex")
+      (list
+        (tuple "Tab" " side")
+        (tuple "^S" " save")
+        (tuple "^F" " find")
+        (tuple "^O" " offset")
+        (tuple "Esc" " menu"))
+      (list
+        (tuple "^S" " save")
+        (tuple "^Q" " quit")
+        (tuple "^F" " find")
+        (tuple "^G" " next")
+        (tuple "Esc" " menu")))))
+
+(def name (fn () (if (= (tb-path) "") "(new)" (tb-path))))
+
+; Where the cursor is: line and column for text; for hex the offset, the
+; size, and the byte under the cursor in hex, decimal and binary, as MIHED
+; shows it.
+(def where
+  (fn ()
+    (if (= VIEW "hex")
+      (let ((at (tb-offset)) (b (tb-byte-at at)))
+        (str-concat (name)
+          (if (tb-dirty) " *" "")
+          "  "
+          (hex at 8)
+          "/"
+          (hex (tb-size) 8)
+          (if (< b 0) "" (str-concat "  " (hex b 2) "h " (str-fmt "%d" b) " " (bin b 8)))))
+      (letv (l c) (tb-cursor)
+        (str-concat (name)
+          (if (tb-dirty) " *" "")
+          (str-fmt "  Line %d  Col %d" (+ l 1) (+ c 1)))))))
+
+(def status-line
+  (fn ()
+    (bar (- H 1))
+    (cond
+      ((= MODE "quit")
+        (do
+          (print-at (- H 1) 1 "Save changes?")
+          (hints (- H 1) 16
+            (list (tuple "Y" "es") (tuple "N" "o") (tuple "Esc" " back")))))
+      ((= MODE "find")
+        (let ((label (if (= VIEW "hex") "Find (hex or text): " "Find: ")))
+          (input-at (- H 1) (print-at (- H 1) 1 label) (- W (+ (text-width label) 2)) 120 #f)))
+      ((= MODE "saveas")
+        (input-at (- H 1) (print-at (- H 1) 1 "Save as: ") (- W 11) 120 #f))
+      ((= MODE "goto")
+        (let ((label (if (= VIEW "hex") "Offset (0x4D, 4Dh or 77): " "Line: ")))
+          (input-at (- H 1) (print-at (- H 1) 1 label) (- W (+ (text-width label) 2)) 30 #f)))
+      ((= MODE "cmd") (input-at (- H 1) (print-at (- H 1) 1 ":") (- W 3) 120 #f))
+      ((not (= MSG "")) (print-at (- H 1) 1 MSG))
+      ((= MODE "menu")
+        (if (= (menu-rows) 1)
+          (hints (- H 1) 1 (menu-hints))
+          (let ((half (floor (/ (length (menu-hints)) 2))))
+            (bar (- H 2))
+            (hints (- H 2) 1 (slice (menu-hints) 0 half))
+            (hints (- H 1) 1 (slice (menu-hints) half (length (menu-hints)))))))
+      (else
+        (let ((pos (where)))
+          (do
+            (hints (- H 1) 1 (fit-hints (plain-hints) (- W (text-width pos) 1)))
+            (fg 2)
+            (print-at (- H 1) (- W (text-width pos) 1) pos)
+            (fg 252)))))))
+
+; ---- keys ----
+
+; Ctrl chords are their letter minus 64: ^S is 19. Letters in the menu
+; are either case.
+(def is-key (fn (lower upper) (or (= KEY lower) (= KEY upper))))
+
+; The colon line, for hands that reach for it: w, q, q!, wq (or x),
+; w name, and a line number.
+(def all-digits
+  (fn (s)
+    (and (> (str-len s) 0)
+      (fold (fn (ok i) (and ok (str-find (str-sub s i (+ i 1)) "0123456789")))
+        #t
+        (range (str-len s))))))
+
+(def run-cmd
+  (fn (s)
+    (cond
+      ((= s "") #t)
+      ((= s "w") (save ""))
+      ((= s "q") (quit))
+      ((= s "fmt") (reformat))
+      ((= s "q!") (done))
+      ((or (= s "wq") (= s "x")) (save-and-quit))
+      ((and (> (str-len s) 2) (= (str-sub s 0 2) "w ")) (save (str-trim (str-sub s 2))))
+      ((all-digits s) (tb-goto (number s)))
+      (else (set MSG (str-concat "edt: :" s ": command not found"))))))
+
+; Typing in the hex view: hex digits on the hex side fill the byte a half
+; at a time (the high half first, then the low one, then the next byte),
+; characters on the other side replace the byte whole.
+(def hex-type
+  (fn (k)
+    (let ((at (tb-offset)) (old (if (< (tb-byte-at at) 0) 0 (tb-byte-at at))))
+      (if (= PANE "hex")
+        ; a key below 128 is its ASCII character, which cp437 spells the same
+        (let ((d (if (< k 128) (digit-of (str-lower (cp437 k))) -1)))
+          (if (>= d 0)
+            (if NIB
+              (do
+                (tb-set-byte at (+ (* (floor (/ old 16)) 16) d))
+                (set NIB #f)
+                (tb-seek (+ at 1)))
+              (do (tb-set-byte at (+ (* d 16) (% old 16))) (set NIB #t)))))
+        ; a character becomes the byte of its code point: ASCII as is, and the
+        ; rest of Latin-1 as the single byte a hex editor means by it
+        (if (and (>= k 32) (< k 256))
+          (do (tb-set-byte at k) (tb-seek (+ at 1))))))))
+
+(def hex-move
+  (fn (to)
+    (set NIB #f)
+    (tb-seek (if (< to 0) 0 (if (> to (tb-size)) (tb-size) to)))))
+
+(def hex-key
+  (fn (rows)
+    (let ((per (per-row)) (at (tb-offset)))
+      (cond
+        ((= KEY KEY_LEFT) (hex-move (- at 1)))
+        ((= KEY KEY_RIGHT) (hex-move (+ at 1)))
+        ((= KEY KEY_UP) (hex-move (- at per)))
+        ((= KEY KEY_DOWN) (hex-move (+ at per)))
+        ((= KEY KEY_PGUP) (hex-move (- at (* per rows))))
+        ((= KEY KEY_PGDN) (hex-move (+ at (* per rows))))
+        ((= KEY KEY_HOME) (hex-move (* (floor (/ at per)) per)))
+        ((= KEY KEY_END) (hex-move (+ (* (floor (/ at per)) per) (- per 1))))
+        ((= KEY (+ KEY_HOME KEY_CTRL)) (hex-move 0))
+        ((= KEY (+ KEY_END KEY_CTRL)) (hex-move (tb-size)))
+        ((= KEY 9) (do (set PANE (if (= PANE "hex") "text" "hex")) (set NIB #f)))
+        ((or (= KEY 8) (= KEY 127)) (hex-move (- at 1)))
+        (else (hex-type KEY))))))

@@ -1,0 +1,111 @@
+name: test
+
+on: [push, pull_request, workflow_dispatch]
+
+permissions:
+  contents: read
+
+jobs:
+  # The core under ASan/UBSan and the binary, on both hosts. filo-term and
+  # Filo are sibling checkouts, as they are on a developer's disk.
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    env:
+      CC: clang
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: edt
+      - uses: actions/checkout@v4
+        with:
+          repository: crgimenes/filo-term
+          path: filo-term
+      - uses: actions/checkout@v4
+        with:
+          repository: crgimenes/clang_filo
+          path: clang_filo
+      - run: make -C edt edt test
+
+  # The program compiled by Go's filo and by C's must be the same bytes:
+  # it cannot matter which one a user has.
+  filo-go-c:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CC: clang
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: edt
+      - uses: actions/checkout@v4
+        with:
+          repository: crgimenes/filo-term
+          path: filo-term
+      - uses: actions/checkout@v4
+        with:
+          repository: crgimenes/clang_filo
+          path: clang_filo
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - run: go install github.com/crgimenes/filo/cmd/filo@latest
+      - run: |
+          make -C edt edt.fbb
+          mv edt/edt.fbb c.fbb
+          rm -f edt/build/edt.fbc
+          make -C edt edt.fbb FILO_CLI="$(go env GOPATH)/bin/filo"
+          cmp edt/edt.fbb c.fbb
+
+  # The release's Linux binary: musl, static, nothing to install.
+  static:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+    container: alpine:3.22
+    steps:
+      - run: apk add clang make musl-dev file go git
+      - uses: actions/checkout@v4
+        with:
+          path: edt
+      - uses: actions/checkout@v4
+        with:
+          repository: crgimenes/filo-term
+          path: filo-term
+      - uses: actions/checkout@v4
+        with:
+          repository: crgimenes/clang_filo
+          path: clang_filo
+      - run: go install github.com/crgimenes/filo/cmd/filo@latest
+      - run: make -C edt edt CC=clang LDFLAGS=-static FILO_CLI="$(go env GOPATH)/bin/filo"
+      - run: file edt/edt | grep -q 'statically linked'
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: edt
+      - uses: actions/checkout@v4
+        with:
+          repository: crgimenes/filo-term
+          path: filo-term
+      - uses: actions/checkout@v4
+        with:
+          repository: crgimenes/clang_filo
+          path: clang_filo
+      - name: Install tools
+        run: |
+          wget -qO llvm.sh https://apt.llvm.org/llvm.sh
+          sudo bash llvm.sh 23
+          sudo apt-get install -y clang-format-23 clang-tidy-23 cppcheck
+      - run: make -C edt fmt-check tidy check CLANG_FORMAT=clang-format-23 CLANG_TIDY=clang-tidy-23

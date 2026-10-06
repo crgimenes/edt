@@ -1,0 +1,12 @@
+; The field's line, when Enter ends it.
+(let ((s (input-text)))
+  (cond
+    ((= MODE "find") (do (set FIND s) (set MODE "edit") (find-next)))
+    ((= MODE "saveas")
+      (do
+        (set MODE "edit")
+        (if (and (not (= s "")) (save s) LEAVE) (done))
+        (set LEAVE #f)))
+    ((= MODE "goto") (do (set MODE "edit") (go-to s)))
+    ((= MODE "cmd") (do (set MODE "edit") (run-cmd (str-trim s))))
+    (else #t)))
