@@ -69,12 +69,10 @@ jobs:
 
   # The release's Linux binary: musl, static, nothing to install.
   static:
-    runs-on: ${{ matrix.os }}
+    # x64 only: GitHub runs no JavaScript action in an Alpine container on
+    # arm64; the arm64 static build is the same Makefile line.
+    runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm]
     container: alpine:3.22
     steps:
       - run: apk add clang make musl-dev file go git

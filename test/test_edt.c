@@ -387,6 +387,8 @@ static void test_highlight_by_language(void) {
     /* marks made further down before an edit above them are not trusted */
     static char many[700 * 7 + 1];
     for (size_t i = 0; i < 700; i++) {
+        /* lines laid end to end in a zeroed buffer: no terminator wanted */
+        // NOLINTNEXTLINE(bugprone-not-null-terminated-result)
         memcpy(many + (i * 7), "int x;\n", 7);
     }
     write_file("m.c", many, sizeof(many) - 1);
