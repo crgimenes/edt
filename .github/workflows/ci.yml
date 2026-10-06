@@ -51,15 +51,20 @@ jobs:
         with:
           repository: crgimenes/clang_filo
           path: clang_filo
+      - uses: actions/checkout@v4
+        with:
+          repository: crgimenes/filo
+          path: filo
       - uses: actions/setup-go@v5
         with:
-          go-version: stable
-      - run: go install github.com/crgimenes/filo/cmd/filo@latest
+          go-version-file: filo/go.mod
+      # Go's filo at its own head, beside C's: the two must write the same bytes
+      - run: cd filo && go build -o "$RUNNER_TEMP/filo" ./cmd/filo
       - run: |
           make -C edt edt.fbb
           mv edt/edt.fbb c.fbb
           rm -f edt/build/edt.fbc
-          make -C edt edt.fbb FILO_CLI="$(go env GOPATH)/bin/filo"
+          make -C edt edt.fbb FILO_CLI="$RUNNER_TEMP/filo"
           cmp edt/edt.fbb c.fbb
 
   # The release's Linux binary: musl, static, nothing to install.
@@ -84,8 +89,13 @@ jobs:
         with:
           repository: crgimenes/clang_filo
           path: clang_filo
-      - run: go install github.com/crgimenes/filo/cmd/filo@latest
-      - run: make -C edt edt CC=clang LDFLAGS=-static FILO_CLI="$(go env GOPATH)/bin/filo"
+      - uses: actions/checkout@v4
+        with:
+          repository: crgimenes/filo
+          path: filo
+      # alpine's go is older than go.mod's: GOTOOLCHAIN fetches the one it names
+      - run: cd filo && GOTOOLCHAIN=auto go build -o /tmp/filo ./cmd/filo
+      - run: make -C edt edt CC=clang LDFLAGS=-static FILO_CLI=/tmp/filo
       - run: file edt/edt | grep -q 'statically linked'
 
   lint:
