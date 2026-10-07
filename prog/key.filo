@@ -33,6 +33,7 @@
           ((is-key 102 70) (set MODE "find"))
           ((is-key 110 78) (find-next))
           ((is-key 103 71) (set MODE "goto"))
+          ((is-key 117 85) (undo))
           ((is-key 120 88) (toggle-view))
           ((is-key 109 77) (pager-buffer))
           ((is-key 104 72) (manual))

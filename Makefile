@@ -15,9 +15,9 @@ CLI_DEP = $(filter $(FILO)/build/filo,$(FILO_CLI))
 
 WARN = -Wall -Wextra -Werror -Wshadow -Wconversion -Wdouble-promotion -Wundef
 # A desktop's sizes, not a small device's: files up to 8 MB (and a million lines),
-# terminals up to 512 by 200, and arenas to match.
+# an undo that holds a whole file, terminals up to 512 by 200, and arenas to match.
 CFG = -DFT_CFG_TB_CAP='(8*1024*1024)' -DFT_CFG_TB_LINES_MAX='(1024*1024)' \
-	-DFT_CFG_COLS_MAX=512 -DFT_CFG_ROWS_MAX=200 \
+	-DFT_CFG_TB_UNDO='(8*1024*1024)' -DFT_CFG_COLS_MAX=512 -DFT_CFG_ROWS_MAX=200 \
 	-DAPP_CFG_PERSISTENT='(4U*1024U*1024U)' -DAPP_CFG_RUN='(8U*1024U*1024U)'
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 INC = -Isrc -I$(FILO_TERM)/src -I$(FILO)

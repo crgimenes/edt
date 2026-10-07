@@ -100,6 +100,12 @@
 
 (def quit (fn () (if (tb-dirty) (set MODE "quit") (done))))
 
+; A byte half typed is forgotten with the edit it was part of.
+(def undo
+  (fn ()
+    (set NIB #f)
+    (if (not (tb-undo)) (set MSG "Nothing to undo"))))
+
 ; The manual for what is being edited, in the VM's pager: Redcode has one
 ; where rocchetto keeps Core War's; a VM without that file says so.
 (def ends-with
@@ -289,6 +295,7 @@
         (tuple "D" "elete")
         (tuple "C" "opy")
         (tuple "P" "aste")
+        (tuple "U" "ndo")
         (tuple "L" "ine")
         (tuple "F" "ind")
         (tuple "N" "ext")

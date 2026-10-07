@@ -34,19 +34,26 @@ Text view:
 | ^O | go to a line |
 | ^L | bare screen (no status line) |
 | ^P | preview in the pager: Markdown rendered for a `.md`, plain text otherwise; q or Esc comes back |
-| Esc | menu: **S**ave, save **A**s, **Q**uit, **D**elete, **C**opy, **P**aste, delete **L**ine, **F**ind, **N**ext, **G**o to, **X** hex view, **M**arkdown preview, **B**are, **H**elp (the manual of what is edited, where the VM has one), **R**eformat (a `.filo`, laid out as filofmt lays it out), `:` command, `/` find |
+| Esc | menu: **S**ave, save **A**s, **Q**uit, **D**elete, **C**opy, **P**aste, **U**ndo, delete **L**ine, **F**ind, **N**ext, **G**o to, **X** hex view, **M**arkdown preview, **B**are, **H**elp (the manual of what is edited, where the VM has one), **R**eformat (a `.filo`, laid out as filofmt lays it out), `:` command, `/` find |
 
 Shift+arrows select. ^X or Shift+Del cuts, Ctrl+Ins copies, Shift+Ins pastes
 and ^Y deletes the line. Copy and cut also reach the terminal's clipboard
 through OSC 52. Pasting from the terminal (bracketed paste) inserts the text
 in one step.
 
+Esc U undoes the last edit, and again the one before: typing a line at a
+time, a run of Backspace or Delete at once, a paste, a cut or a replaced
+selection whole. The cursor goes back to where the edit was. How far back it
+reaches is a build's choice (`FT_CFG_TB_UNDO`): the desktop build keeps 8 MB
+of history, enough to undo a change to a whole file; a small device keeps
+less, and the oldest edits are forgotten first.
+
 The `:` commands are `w`, `w NAME`, `q`, `q!`, `wq` / `x`, `fmt`, and a line
 number.
 
 Reformat moves only blanks: the cursor stays on the same character of the
 code, and a source whose strings or parens do not close is left as it is.
-There is no undo; quitting without saving keeps the file as it was.
+Esc U undoes it in one step, as it undoes anything else.
 
 Hex view:
 
@@ -66,6 +73,7 @@ sample.c                          00000010/0000012C  0Ah 10 00001010
 | any character (character side) | overwrite the byte with that character |
 | ^O | go to an offset: `0x4D`, `4Dh` or decimal |
 | ^F | find text, or bytes written as hex pairs: `4d 5a` |
+| Esc U | undo, as in the text view |
 | Esc X | back to text |
 
 The status line shows the offset, the size and the byte under the cursor in

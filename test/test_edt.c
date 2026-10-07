@@ -207,6 +207,42 @@ static void test_undone_edit_is_clean(void) {
     CHECK(edt_done(&E));
 }
 
+/* Esc U, apart in time as Esc X is. */
+static void undo(void) {
+    keys("\x1b");
+    keys("u");
+}
+
+static void test_undo(void) {
+    write_file("z.txt", "one\n", 4);
+    CHECK(start("z.txt", 80, 24));
+    undo();
+    CHECK(screen_has("Nothing to undo"));
+    keys("\x1b[F"); /* End */
+    keys(" two\rthree");
+    keys("\x7f\x7f");
+    CHECK(screen_has("thr"));
+    undo();
+    CHECK(screen_has("three"));
+    undo();
+    CHECK(!screen_has("thr") && screen_has("one two"));
+    CHECK(screen_has("Line 2  Col 1"));
+    undo();
+    CHECK(!screen_has("two") && !screen_has("z.txt *"));
+    CHECK(screen_has("Line 1  Col 4"));
+
+    toggle();
+    keys("\x1b[H"); /* Home: the row's first byte */
+    keys("4");      /* half a byte: 'o' (6F) is 4F */
+    undo();
+    CHECK(starts_with(row_text(0), "00000000  6F 6E 65 0A"));
+    keys("41");
+    CHECK(starts_with(row_text(0), "00000000  41 6E 65 0A")); /* whole bytes after the undo */
+    undo();
+    CHECK(starts_with(row_text(0), "00000000  6F 6E 65 0A"));
+    CHECK(!screen_has("z.txt *"));
+}
+
 static void test_hex_view_shows_bytes(void) {
     write_file("b.bin", "hello\x01\xFF", 7);
     CHECK(start("b.bin", 80, 24));
@@ -478,6 +514,7 @@ int main(void) {
     test_no_file_asks_for_a_name();
     test_no_file_quit_saves_then_ends();
     test_undone_edit_is_clean();
+    test_undo();
     test_hex_view_shows_bytes();
     test_hex_typing_nibbles_and_chars();
     test_goto_and_find_bytes();
