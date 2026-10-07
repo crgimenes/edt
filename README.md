@@ -93,10 +93,11 @@ and x86_64) and Linux (static, amd64 and arm64), nothing else to install.
 
 ## Build
 
-edt is built from its own sources plus two sibling checkouts: filo-term
-(the terminal, canvas, text buffer, key decoder, pager and the builtins
-over them) and clang_filo. By default they are looked for at `../filo-term`
-and `../clang_filo`:
+edt is built from its own sources plus two sibling checkouts:
+[filo-term](https://github.com/crgimenes/filo-term) (the terminal, canvas,
+text buffer, key decoder, pager and the builtins over them) and
+[clang_filo](https://github.com/crgimenes/clang_filo). By default they are
+looked for at `../filo-term` and `../clang_filo`:
 
 ```
 make                     # ./edt and edt.fbb
