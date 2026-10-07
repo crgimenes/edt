@@ -81,6 +81,16 @@ renames it over `FILE`. If the terminal goes away (SIGHUP, SIGTERM, or input
 closed) with changes not saved, edt writes them to `FILE.edt-rescue` and says
 so on stderr.
 
+## Install
+
+```
+brew install crgimenes/tap/edt
+```
+
+installs edt. Or take a binary from the
+[releases](https://github.com/crgimenes/edt/releases): macOS (universal, arm64
+and x86_64) and Linux (static, amd64 and arm64), nothing else to install.
+
 ## Build
 
 edt is built from its own sources plus two sibling checkouts: filo-term
@@ -91,9 +101,10 @@ and `../clang_filo`:
 ```
 make                     # ./edt and edt.fbb
 make FILO_TERM=/path/to/filo-term FILO=/path/to/clang_filo
-make install             # to ~/.local/bin; PREFIX=/usr/local for elsewhere
+make install             # to /usr/local/bin; PREFIX=~/.local for elsewhere
 make test                # the core, driven like a terminal, under ASan/UBSan
 make qa                  # build, clang-format, test, clang-tidy, cppcheck
+make dist                # the release binaries in dist/ (needs zig for Linux)
 ```
 
 It builds with any C11 compiler and libc. `make qa` needs LLVM's

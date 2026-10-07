@@ -32,6 +32,12 @@ int main(int argc, char **argv) {
         fputs(usage, stdout);
         return 0;
     }
+    if (argc == 2 && strcmp(argv[1], "--version") == 0) {
+        fputs("edt ", stdout);
+        fputs(app_program.version, stdout);
+        fputs("\n", stdout);
+        return 0;
+    }
     if (argc > 2) {
         fputs(usage, stderr);
         return 2;

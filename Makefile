@@ -37,7 +37,7 @@ PREFIX ?= /usr/local
 # has no static libc, and the binary needs nothing past libSystem anyway.
 LDFLAGS ?=
 
-.PHONY: all test fmt fmt-check tidy check qa install clean
+.PHONY: all test fmt fmt-check tidy check qa install dist clean
 
 # Two products of one build: ./edt, which carries the VM and the program,
 # and edt.fbb, the program alone for any Filo VM that has what it imports.
@@ -102,5 +102,11 @@ install: edt
 	mkdir -p $(PREFIX)/bin
 	cp edt $(PREFIX)/bin/edt
 
+# What release.sh publishes (VERSION is its tag): edt for macOS and for Linux.
+DIST_DIR ?= dist
+dist: build/fbb.c
+	sh $(FILO_TERM)/tools/dist.sh $(DIST_DIR) edt -O2 $(FLAGS) -DFILO_VM_ONLY \
+		$(CORE) build/fbb.c src/main.c $(FILO_TERM)/src/tty.c
+
 clean:
-	rm -rf build edt edt.fbb
+	rm -rf build dist edt edt.fbb

@@ -1,3 +1,5 @@
 build/
 /edt
 /edt.fbb
+dist/
+release.sh
