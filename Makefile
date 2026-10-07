@@ -37,7 +37,7 @@ PREFIX ?= /usr/local
 # has no static libc, and the binary needs nothing past libSystem anyway.
 LDFLAGS ?=
 
-.PHONY: all test fmt fmt-check tidy check qa install dist clean
+.PHONY: all test fmt fmt-check tidy check qa smoke install dist clean
 
 # Two products of one build: ./edt, which carries the VM and the program,
 # and edt.fbb, the program alone for any Filo VM that has what it imports.
@@ -96,7 +96,11 @@ check:
 		--suppress=missingIncludeSystem --error-exitcode=1 $(CFG) $(INC) \
 		src/edt.c src/main.c test/test_edt.c
 
-qa: edt fmt-check test tidy check
+# The binary as shipped, on a terminal: it starts, draws, and quits.
+smoke: edt
+	sh $(FILO_TERM)/tools/smoke.sh ./edt '\021'
+
+qa: edt fmt-check test smoke tidy check
 
 install: edt
 	mkdir -p $(PREFIX)/bin

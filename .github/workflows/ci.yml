@@ -30,7 +30,7 @@ jobs:
         with:
           repository: crgimenes/clang_filo
           path: clang_filo
-      - run: make -C edt edt test
+      - run: make -C edt edt test smoke
 
   # The program compiled by Go's filo and by C's must be the same bytes:
   # it cannot matter which one a user has.
