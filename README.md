@@ -24,17 +24,21 @@ termios only).
 
 ## Keys
 
+The screen offers one key, Esc, which opens the menu; everything is a
+letter of that menu. The Ctrl chords below (^S is Ctrl held while S is
+pressed) do the same for hands that know them and are not shown.
+
 Text view:
 
 | Key | Action |
 | --- | --- |
+| Esc | menu: **S**ave, save **A**s, **Q**uit, **D**elete, **C**opy, **P**aste, **U**ndo, delete **L**ine, **F**ind, **N**ext, **G**o to, **X** hex view, **M**arkdown preview, **B**are, **H**elp (the manual of what is edited, where the VM has one), **R**eformat (a `.filo`, laid out as filofmt lays it out), `:` command, `/` find |
 | ^S | save |
 | ^Q | quit (asks to save changes) |
 | ^F / ^G | find / find next |
 | ^O | go to a line |
 | ^L | bare screen (no status line) |
 | ^P | preview in the pager: Markdown rendered for a `.md`, plain text otherwise; q or Esc comes back |
-| Esc | menu: **S**ave, save **A**s, **Q**uit, **D**elete, **C**opy, **P**aste, **U**ndo, delete **L**ine, **F**ind, **N**ext, **G**o to, **X** hex view, **M**arkdown preview, **B**are, **H**elp (the manual of what is edited, where the VM has one), **R**eformat (a `.filo`, laid out as filofmt lays it out), `:` command, `/` find |
 
 Shift+arrows select. ^X or Shift+Del cuts, Ctrl+Ins copies, Shift+Ins pastes
 and ^Y deletes the line. Copy and cut also reach the terminal's clipboard

@@ -247,10 +247,9 @@
 ; ---- the footer ----
 
 ; The footer is the whole language: Esc, then the red letter of a word.
-; Ctrl chords for the common ones sit there all the time; vi's colon and
-; slash work too and are not shown. The colours are a tmux status line's:
-; dark grey ground, keys in orange and bold, words in light grey, the
-; position in green.
+; The Ctrl chords, vi's colon and slash work too and are not shown. The
+; colours are a tmux status line's: dark grey ground, keys in orange and
+; bold, words in light grey, the position in green.
 (def bar (fn (y) (fg 252) (bg 236) (fill y 0 1 W " ")))
 
 (def hint
@@ -306,21 +305,13 @@
         (tuple "H" "elp"))
       (if (filo-text?) (list (tuple "R" "eformat")) (list)))))
 
+; Outside the menu only Esc (and Tab in hex) is offered: "^S" says nothing
+; to a hand new to a terminal, and the Ctrl chords are the manual's.
 (def plain-hints
   (fn ()
     (if (= VIEW "hex")
-      (list
-        (tuple "Tab" " side")
-        (tuple "^S" " save")
-        (tuple "^F" " find")
-        (tuple "^O" " offset")
-        (tuple "Esc" " menu"))
-      (list
-        (tuple "^S" " save")
-        (tuple "^Q" " quit")
-        (tuple "^F" " find")
-        (tuple "^G" " next")
-        (tuple "Esc" " menu")))))
+      (list (tuple "Tab" " side") (tuple "Esc" " menu"))
+      (list (tuple "Esc" " menu")))))
 
 (def name (fn () (if (= (tb-path) "") "(new)" (tb-path))))
 
