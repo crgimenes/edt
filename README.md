@@ -13,11 +13,12 @@ The same `edt.fbb` loads in any Filo VM that provides the builtins it
 imports (`filo dump edt.fbb` lists them); one that lacks any refuses it.
 
 ```
-edt [FILE]
+edt [+LINE] [FILE]
 ```
 
 A file that does not exist is created on the first save. With no FILE, the
-first save asks for a name. edt asks whether to save on the way out only
+first save asks for a name. `+LINE` opens on that line, as vi does:
+`edt +120 main.c`. edt asks whether to save on the way out only
 when the text differs from the file: an edit undone by hand leaves nothing
 to save. edt needs a terminal. It runs on macOS, Linux and the BSDs (POSIX
 termios only).

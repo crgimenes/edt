@@ -14,9 +14,11 @@ FILO_CLI ?= $(FILO)/build/filo
 CLI_DEP = $(filter $(FILO)/build/filo,$(FILO_CLI))
 
 WARN = -Wall -Wextra -Werror -Wshadow -Wconversion -Wdouble-promotion -Wundef
-# A desktop's sizes, not a small device's: files up to 8 MB (and a million lines),
-# an undo that holds a whole file, terminals up to 512 by 200, and arenas to match.
-CFG = -DFT_CFG_TB_CAP='(8*1024*1024)' -DFT_CFG_TB_LINES_MAX='(1024*1024)' \
+# A desktop's sizes, not a small device's: files up to 512 MB (and 16 million
+# lines), an undo of 8 MB, terminals up to 512 by 200, and arenas to match. The
+# buffer is a static array the OS commits a page at a time, so a small file
+# costs its own size, not the cap.
+CFG = -DFT_CFG_TB_CAP='(512*1024*1024)' -DFT_CFG_TB_LINES_MAX='(16*1024*1024)' \
 	-DFT_CFG_TB_UNDO='(8*1024*1024)' -DFT_CFG_COLS_MAX=512 -DFT_CFG_ROWS_MAX=200 \
 	-DAPP_CFG_PERSISTENT='(4U*1024U*1024U)' -DAPP_CFG_RUN='(8U*1024U*1024U)'
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)

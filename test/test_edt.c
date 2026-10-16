@@ -52,7 +52,7 @@ static size_t read_file(const char *name, uint8_t *dst, size_t cap) {
 
 static bool start(const char *name, uint16_t cols, uint16_t rows) {
     char why[256];
-    bool ok = edt_start(&E, edt_fbb, edt_fbb_len, path_of(name), cols, rows, why, sizeof(why));
+    bool ok = edt_start(&E, edt_fbb, edt_fbb_len, path_of(name), 0, cols, rows, why, sizeof(why));
     if (!ok) {
         printf("  start: %s\n", why);
     }
@@ -152,7 +152,7 @@ static void test_new_file_and_quit(void) {
 
 static void test_no_file_asks_for_a_name(void) {
     char why[256];
-    CHECK(edt_start(&E, edt_fbb, edt_fbb_len, "", 200, 24, why,
+    CHECK(edt_start(&E, edt_fbb, edt_fbb_len, "", 0, 200, 24, why,
                     sizeof(why))); /* wide: the path fits */
     CHECK(screen_has("(new)"));
     keys("draft");
@@ -172,7 +172,7 @@ static void test_no_file_asks_for_a_name(void) {
    under it ends the editor; Esc at the name keeps it open. */
 static void test_no_file_quit_saves_then_ends(void) {
     char why[256];
-    CHECK(edt_start(&E, edt_fbb, edt_fbb_len, "", 80, 24, why, sizeof(why)));
+    CHECK(edt_start(&E, edt_fbb, edt_fbb_len, "", 0, 80, 24, why, sizeof(why)));
     keys("x");
     const char quit[2] = {CTRL('Q'), 0};
     keys(quit);
@@ -447,9 +447,19 @@ static void test_highlight_by_language(void) {
     CHECK(fg_at(0, 0) == CV_COLOR_DEFAULT && fg_at(0, 4) == CV_COLOR_DEFAULT);
 }
 
+/* edt +N FILE opens on line N, as vi does; past the end is the last line. */
+static void test_starts_on_a_line(void) {
+    write_file("lines.txt", "a\nb\nc\nd\n", 8);
+    char why[256];
+    CHECK(edt_start(&E, edt_fbb, edt_fbb_len, path_of("lines.txt"), 3, 80, 24, why, sizeof(why)));
+    CHECK(screen_has("Line 3  Col 1"));
+    CHECK(edt_start(&E, edt_fbb, edt_fbb_len, path_of("lines.txt"), 99, 80, 24, why, sizeof(why)));
+    CHECK(screen_has("Line 5  Col 1"));
+}
+
 static void test_refusals(void) {
     char why[256];
-    CHECK(!edt_start(&E, edt_fbb, edt_fbb_len, dir, 80, 24, why, sizeof(why)));
+    CHECK(!edt_start(&E, edt_fbb, edt_fbb_len, dir, 0, 80, 24, why, sizeof(why)));
     CHECK(strstr(why, "Is a directory") != NULL);
 }
 
@@ -524,6 +534,7 @@ int main(void) {
     test_rescue_keeps_unsaved_text();
     test_preview_in_the_pager();
     test_manual_where_there_is_none();
+    test_starts_on_a_line();
     test_refusals();
     test_highlight_by_language();
     test_reformat_filo();

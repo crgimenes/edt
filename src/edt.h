@@ -42,11 +42,12 @@ extern const uint8_t edt_fbb[];
 extern const size_t edt_fbb_len;
 
 /* Opens path (a new file when there is none; "" for one with no name yet)
-   at cols x rows with the program fbb (edt.fbb, which must outlive e) and
-   paints. False with why when it cannot: a directory, a file too large, a
-   program that does not load or start. */
-bool edt_start(edt *e, const uint8_t *fbb, size_t fbb_len, const char *path, uint16_t cols,
-               uint16_t rows, char *why, size_t cap);
+   on line (1-based; 0 for the first) at cols x rows with the program fbb
+   (edt.fbb, which must outlive e) and paints. False with why when it
+   cannot: a directory, a file too large, a program that does not load or
+   start. */
+bool edt_start(edt *e, const uint8_t *fbb, size_t fbb_len, const char *path, size_t line,
+               uint16_t cols, uint16_t rows, char *why, size_t cap);
 
 void edt_input(edt *e, const uint8_t *data, size_t n);
 void edt_tick(edt *e, uint32_t ms);

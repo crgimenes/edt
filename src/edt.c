@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -327,30 +326,28 @@ static bool load(edt *e, const char *path, char *why, size_t cap) {
     if (f == NULL) {
         return fail(why, cap, path, ": cannot be read");
     }
-    uint8_t *data = malloc((size_t)st.st_size + 1);
-    if (data == NULL) {
-        (void)fclose(f);
-        return fail(why, cap, path, ": not enough memory");
+    /* straight into the buffer: a large file is not held twice */
+    size_t got = fread(e->tb.text, 1, TB_CAP, f);
+    bool more = false; /* grown since stat */
+    if (got == TB_CAP) {
+        more = fgetc(f) != EOF;
     }
-    size_t got = fread(data, 1, (size_t)st.st_size + 1, f); /* one more: grown since stat */
     (void)fclose(f);
-    bool ok = false;
-    if (got <= TB_CAP) {
-        ok = tb_load(&e->tb, data, got);
-    }
-    free(data);
-    if (!ok) {
+    if (more || !tb_load(&e->tb, e->tb.text, got)) {
         return fail(why, cap, path, ": File too large");
     }
     return true;
 }
 
-bool edt_start(edt *e, const uint8_t *fbb, size_t fbb_len, const char *path, uint16_t cols,
-               uint16_t rows, char *why, size_t cap) {
+bool edt_start(edt *e, const uint8_t *fbb, size_t fbb_len, const char *path, size_t line,
+               uint16_t cols, uint16_t rows, char *why, size_t cap) {
     e->paging = false;
     e->a.user = e;
     if (!load(e, path, why, cap)) {
         return false;
+    }
+    if (line > 0) {
+        tb_goto_line(&e->tb, line - 1);
     }
     return app_start(&e->a, &app_program, fbb, fbb_len, cols, rows, why, cap);
 }
