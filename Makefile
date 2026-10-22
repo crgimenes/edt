@@ -39,7 +39,7 @@ PREFIX ?= /usr/local
 # has no static libc, and the binary needs nothing past libSystem anyway.
 LDFLAGS ?=
 
-.PHONY: all test fmt fmt-check tidy check qa smoke install dist clean
+.PHONY: all test cov fmt fmt-check tidy check qa smoke install dist clean
 
 # Two products of one build: ./edt, which carries the VM and the program,
 # and edt.fbb, the program alone for any Filo VM that has what it imports.
@@ -78,6 +78,19 @@ test: $(CORE) build/fbb.c test/test_edt.c $(HDRS)
 	$(CC) -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all $(FLAGS) -DFILO_VM_ONLY \
 		-o build/test_edt $(CORE) build/fbb.c test/test_edt.c
 	./build/test_edt
+
+# Line coverage of the test binary: build/cov/cov.txt per file (the editor
+# and the filo-term pieces it uses).
+LLVM_PROFDATA ?= xcrun llvm-profdata
+LLVM_COV ?= xcrun llvm-cov
+cov: $(CORE) build/fbb.c test/test_edt.c $(HDRS)
+	@rm -rf build/cov && mkdir -p build/cov
+	$(CC) -O1 -g -fprofile-instr-generate -fcoverage-mapping $(FLAGS) -DFILO_VM_ONLY \
+		-o build/cov/test_edt $(CORE) build/fbb.c test/test_edt.c
+	LLVM_PROFILE_FILE=build/cov/edt.profraw ./build/cov/test_edt > /dev/null
+	$(LLVM_PROFDATA) merge -sparse -o build/cov/all.profdata build/cov/edt.profraw
+	$(LLVM_COV) report -instr-profile=build/cov/all.profdata build/cov/test_edt src/edt.c $(LIBS) \
+		| tee build/cov/cov.txt | tail -1
 
 fmt:
 	$(CLANG_FORMAT) -i src/*.c src/*.h test/*.c
